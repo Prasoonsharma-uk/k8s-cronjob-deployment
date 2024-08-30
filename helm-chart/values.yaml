@@ -1,0 +1,4 @@
+image:
+  repository: your-repo/your-image
+  tag: "latest"
+schedule: "*/5 * * * *"
