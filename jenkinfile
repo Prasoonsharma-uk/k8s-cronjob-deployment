@@ -1,0 +1,46 @@
+pipeline {
+    agent any
+    environment {
+        DOCKER_IMAGE = "your-repo/your-image"
+        K8S_NAMESPACE = "your-namespace"
+        HELM_RELEASE_NAME = "your-release"
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: 'https://github.com/your-username/k8s-cronjob-deployment.git', branch: 'main'
+            }
+        }
+        stage('Build') {
+            steps {
+                script {
+                    dockerImage = docker.build("${DOCKER_IMAGE}:${env.BUILD_NUMBER}")
+                }
+            }
+        }
+        stage('Push') {
+            steps {
+                script {
+                    docker.withRegistry('https://registry.hub.docker.com', 'docker-credentials-id') {
+                        dockerImage.push("${env.BUILD_NUMBER}")
+                    }
+                }
+            }
+        }
+        stage('Deploy') {
+            steps {
+                script {
+                    withCredentials([kubeconfigFile(credentialsId: 'kubeconfig-id', variable: 'KUBECONFIG')]) {
+                        sh "helm upgrade --install ${HELM_RELEASE_NAME} ./helm-chart/ --set image.tag=${env.BUILD_NUMBER} --namespace ${K8S_NAMESPACE}"
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
+
